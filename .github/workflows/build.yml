@@ -52,11 +52,3 @@ jobs:
         with:
           name: youtube-guidelines-master
           path: dist/
-
-      - name: Commit dist (optional)
-        run: |
-          git config user.name "guidelines-agent"
-          git config user.email "guidelines-agent@users.noreply.github.com"
-          git add dist data/pages.json || true
-          git commit -m "Update guidelines snapshot" || exit 0
-          git push
