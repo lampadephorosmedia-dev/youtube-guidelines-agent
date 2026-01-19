@@ -1,0 +1,62 @@
+name: Build Guidelines Snapshot
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_url:
+        description: "Start URL (Community Guidelines page)"
+        required: true
+        default: "https://support.google.com/youtube/answer/9288567?hl=en"
+      max_pages:
+        description: "Max pages to fetch"
+        required: true
+        default: "60"
+
+  schedule:
+    - cron: "0 6 * * 1"  # jeden Montag 06:00 UTC
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install system deps (pandoc + LaTeX)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pandoc texlive-xetex texlive-fonts-recommended
+
+      - name: Install python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Crawl
+        run: |
+          mkdir -p data dist
+          python src/crawl.py --start "${{ inputs.start_url || 'https://support.google.com/youtube/answer/9288567?hl=en' }}" --out data/pages.json --max-pages ${{ inputs.max_pages || 60 }} --delay 1.2
+
+      - name: Build docs
+        run: |
+          python src/build.py --in data/pages.json --outdir dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtube-guidelines-master
+          path: dist/
+
+      - name: Commit dist (optional)
+        run: |
+          git config user.name "guidelines-agent"
+          git config user.email "guidelines-agent@users.noreply.github.com"
+          git add dist data/pages.json || true
+          git commit -m "Update guidelines snapshot" || exit 0
+          git push
